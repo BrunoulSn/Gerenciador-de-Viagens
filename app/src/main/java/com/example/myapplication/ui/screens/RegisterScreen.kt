@@ -10,8 +10,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -128,9 +128,9 @@ fun RegisterScreen(
                 IconButton(onClick = { viewModel.togglePasswordVisibility() }) {
                     Icon(
                         imageVector = if (uiState.isPasswordVisible) {
-                            Icons.Filled.Visibility
+                            Icons.Filled.KeyboardArrowUp
                         } else {
-                            Icons.Filled.VisibilityOff
+                            Icons.Filled.KeyboardArrowDown
                         },
                         contentDescription = "Toggle password visibility"
                     )
@@ -165,9 +165,9 @@ fun RegisterScreen(
                 IconButton(onClick = { viewModel.toggleConfirmPasswordVisibility() }) {
                     Icon(
                         imageVector = if (uiState.isConfirmPasswordVisible) {
-                            Icons.Filled.Visibility
+                            Icons.Filled.KeyboardArrowUp
                         } else {
-                            Icons.Filled.VisibilityOff
+                            Icons.Filled.KeyboardArrowDown
                         },
                         contentDescription = "Toggle confirm password visibility"
                     )

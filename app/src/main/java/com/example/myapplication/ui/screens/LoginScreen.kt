@@ -12,8 +12,9 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -30,6 +31,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lint.kotlin.metadata.Visibility
 import com.example.myapplication.viewmodel.LoginViewModel
 
 @Composable
@@ -83,9 +85,9 @@ fun LoginScreen(
                 IconButton(onClick = { viewModel.togglePasswordVisibility() }) {
                     Icon(
                         imageVector = if (uiState.isPasswordVisible) {
-                            Icons.Filled.Visibility
+                            Icons.Filled.KeyboardArrowUp
                         } else {
-                            Icons.Filled.VisibilityOff
+                            Icons.Filled.KeyboardArrowDown
                         },
                         contentDescription = "Toggle password visibility"
                     )
