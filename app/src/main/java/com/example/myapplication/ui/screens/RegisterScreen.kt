@@ -13,15 +13,19 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
@@ -34,9 +38,15 @@ import com.example.myapplication.viewmodel.RegisterViewModel
 fun RegisterScreen(
     onRegisterClick: () -> Unit,
     onBackClick: () -> Unit,
-    viewModel: RegisterViewModel = viewModel()
+    viewModel: RegisterViewModel = viewModel(factory = RegisterViewModelFactory(LocalContext.current))
 ) {
     val uiState = viewModel.uiState.collectAsState().value
+
+    LaunchedEffect(uiState.successMessage) {
+        if (uiState.successMessage.isNotEmpty()) {
+            onRegisterClick()
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -52,6 +62,15 @@ fun RegisterScreen(
             modifier = Modifier.padding(vertical = 16.dp)
         )
 
+        if (uiState.errorMessage.isNotEmpty()) {
+            Text(
+                text = uiState.errorMessage,
+                color = MaterialTheme.colorScheme.error,
+                fontSize = 14.sp,
+                modifier = Modifier.padding(16.dp)
+            )
+        }
+
         OutlinedTextField(
             value = uiState.name,
             onValueChange = { viewModel.updateName(it) },
@@ -60,12 +79,13 @@ fun RegisterScreen(
                 .fillMaxWidth()
                 .padding(vertical = 4.dp),
             singleLine = true,
-            isError = uiState.fieldErrors.containsKey("name")
+            isError = uiState.fieldErrors.containsKey("name"),
+            enabled = !uiState.isLoading
         )
         if (uiState.fieldErrors.containsKey("name")) {
             Text(
                 text = uiState.fieldErrors["name"] ?: "",
-                color = androidx.compose.material3.MaterialTheme.colorScheme.error,
+                color = MaterialTheme.colorScheme.error,
                 fontSize = 12.sp,
                 modifier = Modifier.padding(start = 16.dp, top = 2.dp)
             )
@@ -80,12 +100,13 @@ fun RegisterScreen(
                 .padding(vertical = 4.dp),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
             singleLine = true,
-            isError = uiState.fieldErrors.containsKey("email")
+            isError = uiState.fieldErrors.containsKey("email"),
+            enabled = !uiState.isLoading
         )
         if (uiState.fieldErrors.containsKey("email")) {
             Text(
                 text = uiState.fieldErrors["email"] ?: "",
-                color = androidx.compose.material3.MaterialTheme.colorScheme.error,
+                color = MaterialTheme.colorScheme.error,
                 fontSize = 12.sp,
                 modifier = Modifier.padding(start = 16.dp, top = 2.dp)
             )
@@ -100,12 +121,13 @@ fun RegisterScreen(
                 .padding(vertical = 4.dp),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
             singleLine = true,
-            isError = uiState.fieldErrors.containsKey("phone")
+            isError = uiState.fieldErrors.containsKey("phone"),
+            enabled = !uiState.isLoading
         )
         if (uiState.fieldErrors.containsKey("phone")) {
             Text(
                 text = uiState.fieldErrors["phone"] ?: "",
-                color = androidx.compose.material3.MaterialTheme.colorScheme.error,
+                color = MaterialTheme.colorScheme.error,
                 fontSize = 12.sp,
                 modifier = Modifier.padding(start = 16.dp, top = 2.dp)
             )
@@ -137,12 +159,13 @@ fun RegisterScreen(
                 }
             },
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-            isError = uiState.fieldErrors.containsKey("password")
+            isError = uiState.fieldErrors.containsKey("password"),
+            enabled = !uiState.isLoading
         )
         if (uiState.fieldErrors.containsKey("password")) {
             Text(
                 text = uiState.fieldErrors["password"] ?: "",
-                color = androidx.compose.material3.MaterialTheme.colorScheme.error,
+                color = MaterialTheme.colorScheme.error,
                 fontSize = 12.sp,
                 modifier = Modifier.padding(start = 16.dp, top = 2.dp)
             )
@@ -174,12 +197,13 @@ fun RegisterScreen(
                 }
             },
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-            isError = uiState.fieldErrors.containsKey("confirmPassword")
+            isError = uiState.fieldErrors.containsKey("confirmPassword"),
+            enabled = !uiState.isLoading
         )
         if (uiState.fieldErrors.containsKey("confirmPassword")) {
             Text(
                 text = uiState.fieldErrors["confirmPassword"] ?: "",
-                color = androidx.compose.material3.MaterialTheme.colorScheme.error,
+                color = MaterialTheme.colorScheme.error,
                 fontSize = 12.sp,
                 modifier = Modifier.padding(start = 16.dp, top = 2.dp)
             )
@@ -189,20 +213,30 @@ fun RegisterScreen(
 
         Button(
             onClick = {
-                if (viewModel.validateRegistration()) {
-                    onRegisterClick()
-                }
+                viewModel.register(onSuccess = onRegisterClick)
             },
             modifier = Modifier
                 .fillMaxWidth()
-                .height(48.dp)
+                .height(48.dp),
+            enabled = !uiState.isLoading
         ) {
-            Text("Registrar")
+            if (uiState.isLoading) {
+                CircularProgressIndicator(modifier = Modifier.height(24.dp))
+            } else {
+                Text("Registrar")
+            }
         }
 
-        TextButton(onClick = onBackClick, modifier = Modifier.padding(top = 12.dp)) {
+        TextButton(onClick = onBackClick, modifier = Modifier.padding(top = 12.dp), enabled = !uiState.isLoading) {
             Text("Voltar para Login")
         }
+    }
+}
+
+@Composable
+private fun RegisterViewModelFactory(context: android.content.Context) = object : androidx.lifecycle.ViewModelProvider.Factory {
+    override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
+        return RegisterViewModel(context) as T
     }
 }
 

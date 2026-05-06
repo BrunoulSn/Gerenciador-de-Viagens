@@ -1,10 +1,14 @@
 package com.example.myapplication.viewmodel
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.example.myapplication.data.model.User
+import com.example.myapplication.di.AppContainer
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 
 data class RegisterUiState(
     val name: String = "",
@@ -15,10 +19,12 @@ data class RegisterUiState(
     val isPasswordVisible: Boolean = false,
     val isConfirmPasswordVisible: Boolean = false,
     val errorMessage: String = "",
-    val fieldErrors: Map<String, String> = emptyMap()
+    val fieldErrors: Map<String, String> = emptyMap(),
+    val isLoading: Boolean = false,
+    val successMessage: String = ""
 )
 
-class RegisterViewModel : ViewModel() {
+class RegisterViewModel(private val appContext: android.content.Context? = null) : ViewModel() {
     private val _uiState = MutableStateFlow(RegisterUiState())
     val uiState: StateFlow<RegisterUiState> = _uiState.asStateFlow()
 
@@ -96,6 +102,62 @@ class RegisterViewModel : ViewModel() {
 
     fun clearError() {
         _uiState.update { it.copy(errorMessage = "", fieldErrors = emptyMap()) }
+    }
+
+    fun register(onSuccess: () -> Unit) {
+        if (!validateRegistration()) {
+            return
+        }
+
+        _uiState.update { it.copy(isLoading = true) }
+
+        viewModelScope.launch {
+            try {
+                if (appContext != null) {
+                    val database = AppContainer.getDatabase(appContext)
+                    val userDao = database.userDao()
+                    val currentState = _uiState.value
+
+                    // Verificar se o email já existe
+                    val existingUser = userDao.getUserByEmail(currentState.email)
+                    if (existingUser != null) {
+                        _uiState.update {
+                            it.copy(
+                                isLoading = false,
+                                errorMessage = "Email já registrado"
+                            )
+                        }
+                        return@launch
+                    }
+
+                    // Criar e inserir novo usuário
+                    val newUser = User(
+                        name = currentState.name,
+                        email = currentState.email,
+                        phone = currentState.phone,
+                        password = currentState.password
+                    )
+
+                    userDao.insert(newUser)
+
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            successMessage = "Usuário registrado com sucesso!"
+                        )
+                    }
+
+                    onSuccess()
+                }
+            } catch (e: Exception) {
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        errorMessage = "Erro ao registrar: ${e.message}"
+                    )
+                }
+            }
+        }
     }
 }
 

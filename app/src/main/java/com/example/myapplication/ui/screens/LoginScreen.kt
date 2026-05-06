@@ -16,8 +16,10 @@ import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -31,7 +33,6 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.lint.kotlin.metadata.Visibility
 import com.example.myapplication.viewmodel.LoginViewModel
 
 @Composable
@@ -99,7 +100,7 @@ fun LoginScreen(
         if (uiState.errorMessage.isNotEmpty()) {
             Text(
                 text = uiState.errorMessage,
-                color = androidx.compose.material3.MaterialTheme.colorScheme.error,
+                color = MaterialTheme.colorScheme.error,
                 modifier = Modifier.padding(vertical = 8.dp),
                 fontSize = 12.sp
             )
@@ -109,15 +110,18 @@ fun LoginScreen(
 
         Button(
             onClick = {
-                if (viewModel.validateLogin()) {
-                    onLoginClick()
-                }
+                viewModel.login(onSuccess = onLoginClick)
             },
             modifier = Modifier
                 .fillMaxWidth()
-                .height(48.dp)
+                .height(48.dp),
+            enabled = !uiState.isLoading
         ) {
-            Text("Entrar")
+            if (uiState.isLoading) {
+                CircularProgressIndicator(modifier = Modifier.height(24.dp))
+            } else {
+                Text("Entrar")
+            }
         }
 
         Spacer(modifier = Modifier.height(12.dp))
@@ -126,14 +130,21 @@ fun LoginScreen(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            TextButton(onClick = onNewUserClick) {
+            TextButton(onClick = onNewUserClick, enabled = !uiState.isLoading) {
                 Text("Novo Usuário")
             }
 
-            TextButton(onClick = onForgotPasswordClick) {
+            TextButton(onClick = onForgotPasswordClick, enabled = !uiState.isLoading) {
                 Text("Esqueci a Senha")
             }
         }
+    }
+}
+
+@Composable
+private fun LoginViewModelFactory(context: android.content.Context) = object : androidx.lifecycle.ViewModelProvider.Factory {
+    override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
+        return LoginViewModel(context) as T
     }
 }
 

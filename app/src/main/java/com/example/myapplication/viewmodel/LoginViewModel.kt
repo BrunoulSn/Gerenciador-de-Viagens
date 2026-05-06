@@ -1,19 +1,26 @@
 package com.example.myapplication.viewmodel
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.viewModelScope
+import com.example.myapplication.data.CurrentUser
+import com.example.myapplication.di.AppContainer
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 
 data class LoginUiState(
     val email: String = "",
     val password: String = "",
     val isPasswordVisible: Boolean = false,
-    val errorMessage: String = ""
+    val errorMessage: String = "",
+    val isLoading: Boolean = false
 )
 
-class LoginViewModel : ViewModel() {
+class LoginViewModel(private val appContext: Context) : ViewModel() {
     private val _uiState = MutableStateFlow(LoginUiState())
     val uiState: StateFlow<LoginUiState> = _uiState.asStateFlow()
 
@@ -36,14 +43,17 @@ class LoginViewModel : ViewModel() {
                 _uiState.update { it.copy(errorMessage = "E-mail é obrigatório") }
                 false
             }
+
             currentState.password.isBlank() -> {
                 _uiState.update { it.copy(errorMessage = "Senha é obrigatória") }
                 false
             }
+
             !isValidEmail(currentState.email) -> {
                 _uiState.update { it.copy(errorMessage = "E-mail inválido") }
                 false
             }
+
             else -> true
         }
     }
@@ -55,5 +65,63 @@ class LoginViewModel : ViewModel() {
     fun clearError() {
         _uiState.update { it.copy(errorMessage = "") }
     }
+
+    fun login(onSuccess: () -> Unit) {
+        if (!validateLogin()) {
+            return
+        }
+
+        _uiState.update { it.copy(isLoading = true) }
+
+        viewModelScope.launch {
+            try {
+                if (appContext != null) {
+                    val database = AppContainer.getDatabase(appContext)
+                    val userDao = database.userDao()
+                    val currentState = _uiState.value
+
+                    // Buscar usuário pelo email
+                    val user = userDao.getUserByEmail(currentState.email)
+
+                    if (user == null) {
+                        _uiState.update {
+                            it.copy(
+                                isLoading = false,
+                                errorMessage = "Usuário não encontrado"
+                            )
+                        }
+                        return@launch
+                    }
+
+                    // Verificar senha
+                    if (user.password != currentState.password) {
+                        _uiState.update {
+                            it.copy(
+                                isLoading = false,
+                                errorMessage = "Senha incorreta"
+                            )
+                        }
+                        return@launch
+                    }
+
+                    // Login bem-sucedido
+                    CurrentUser.userId = user.id
+                    CurrentUser.userName = user.name
+                    CurrentUser.userEmail = user.email
+
+                    _uiState.update { it.copy(isLoading = false) }
+                    onSuccess()
+                }
+            } catch (e: Exception) {
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        errorMessage = "Erro ao fazer login: ${e.message}"
+                    )
+                }
+            }
+        }
+    }
 }
+
 
