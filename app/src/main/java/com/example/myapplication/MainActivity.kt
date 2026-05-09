@@ -13,7 +13,13 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         // Initialize database
-        AppContainer.getDatabase(this)
+        try {
+            AppContainer.getDatabase(this)
+        } catch (e: Exception) {
+            // Log or handle error
+            e.printStackTrace()
+            return // or finish()
+        }
         setContent {
             MyApplicationTheme {
                 AppNavigation()

@@ -3,6 +3,7 @@ package com.example.myapplication.data.model
 import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.PrimaryKey
+import androidx.room.ColumnInfo
 
 @Entity(
     tableName = "trips",
@@ -23,6 +24,7 @@ data class Trip(
     val type: String, // "Lazer" ou "Negócios"
     val startDate: Long, // Milliseconds
     val endDate: Long, // Milliseconds
-    val budget: Double
+    val budget: Double,
+    @ColumnInfo(defaultValue = "0.0")
+    val totalExpenses: Double = 0.0
 )
-
