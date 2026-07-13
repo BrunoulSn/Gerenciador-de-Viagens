@@ -4,16 +4,19 @@ import android.Manifest
 import android.annotation.SuppressLint
 import android.content.pm.PackageManager
 import android.location.Location
-import android.util.Log // 💡 IMPORTADO PARA OS LOGS
+import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -137,62 +140,41 @@ fun HomeScreen(
             fusedLocationClient.lastLocation.addOnSuccessListener { location: Location? ->
                 if (location != null) {
                     userLocation = location
-                    Log.d("TAG_VIAGEM", "GPS Encontrado (Fused): Lat=${location.latitude}, Lng=${location.longitude}")
                 } else {
                     try {
                         val locationManager = context.getSystemService(android.content.Context.LOCATION_SERVICE) as android.location.LocationManager
                         val lastGpsLoc = locationManager.getLastKnownLocation(android.location.LocationManager.GPS_PROVIDER)
-                        if (lastGpsLoc != null) {
-                            userLocation = lastGpsLoc
-                            Log.d("TAG_VIAGEM", "GPS Encontrado (Fallback): Lat=${lastGpsLoc.latitude}, Lng=${lastGpsLoc.longitude}")
-                        } else {
-                            Log.e("TAG_VIAGEM", "GPS retornou NULL de todas as fontes!")
-                        }
-                    } catch (e: Exception) {
-                        Log.e("TAG_VIAGEM", "Falha catastrófica ao ler provedor GPS: ${e.message}")
-                    }
+                        if (lastGpsLoc != null) userLocation = lastGpsLoc
+                    } catch (_: Exception) {}
                 }
             }
         }
     }
 
-    // 💡 Captura a viagem ativa que veio diretamente do ViewModel
     val activeTrip = uiState.activeTrip
 
-    // 💡 VALIDAÇÃO GEOGRÁFICA REATIVA INTEGRADA COM LOGS:
+    // 💡 VALIDAÇÃO GEOGRÁFICA REATIVA E ESTRITA:
     val isTripNearby = remember(activeTrip, userLocation, uiState.mapLatitude, uiState.mapLongitude, uiState.isMapLoading, uiState.mapDestinationLabel) {
         val loc = userLocation
         val mapLat = uiState.mapLatitude
         val mapLng = uiState.mapLongitude
 
-        Log.d("TAG_VIAGEM", "--- Nova Checagem de Proximidade ---")
-        Log.d("TAG_VIAGEM", "Viagem Selecionada: ${activeTrip?.destination}")
-        Log.d("TAG_VIAGEM", "Rótulo Atual do Mapa: ${uiState.mapDestinationLabel}")
-        Log.d("TAG_VIAGEM", "Coordenadas do Mapa no Estado: Lat=$mapLat, Lng=$mapLng")
-        Log.d("TAG_VIAGEM", "Status de Carregamento (isMapLoading): ${uiState.isMapLoading}")
-
         if (loc == null || activeTrip == null) {
-            Log.d("TAG_VIAGEM", "GPS ou Viagem nulos. Ignorando bloqueio.")
-            true
+            false // Bloqueia se não houver sinal de GPS ou viagem selecionada
         } else {
             val destinationMismatch = uiState.mapDestinationLabel != null &&
                     !uiState.mapDestinationLabel.equals(activeTrip.destination, ignoreCase = true)
 
+            // Bloqueia se ainda estiver carregando ou se o nome não bater
             if (mapLat == null || mapLng == null || uiState.isMapLoading || destinationMismatch) {
-                Log.d("TAG_VIAGEM", "O ViewModel ainda está carregando as coordenadas corretas da cidade. Forçando liberação temporária.")
-                true
+                false
             } else {
                 val tripLocation = Location("").apply {
                     latitude = mapLat
                     longitude = mapLng
                 }
                 val distanceInMeters = loc.distanceTo(tripLocation)
-                val distanceInKm = distanceInMeters / 1000.0
-                Log.d("TAG_VIAGEM", "Distância calculada entre GPS e Destino: ${distanceInKm} KM")
-
-                val nearby = distanceInMeters <= 100_000
-                Log.d("TAG_VIAGEM", "Resultado final 'isTripNearby': $nearby")
-                nearby
+                distanceInMeters <= 100_000 // Raio de 100km
             }
         }
     }
@@ -234,16 +216,6 @@ fun HomeScreen(
                 fontWeight = FontWeight.Bold
             )
 
-            if (version == ThemeVersion.VERSION_1) {
-                Text(
-                    text = "Acesse suas viagens e roteiros abaixo.",
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center
-                )
-            }
-
-            // Seletor de Viagens Sempre Visível
             if (uiState.availableTrips.isNotEmpty()) {
                 ExposedDropdownMenuBox(
                     expanded = isTripSelectorExpanded,
@@ -280,7 +252,7 @@ fun HomeScreen(
                 }
             }
 
-            // Exibição Dinâmica Baseada na Proximidade Regional
+            // Exibição Dinâmica Baseada na Proximidade Regional (Cerco Fechado)
             if (activeTrip != null) {
                 val isSyncing = uiState.isMapLoading || (uiState.mapDestinationLabel != null &&
                         !uiState.mapDestinationLabel.equals(activeTrip.destination, ignoreCase = true))
@@ -289,13 +261,18 @@ fun HomeScreen(
                     Box(modifier = Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
                         CircularProgressIndicator()
                     }
-                } else if (!isTripNearby && userLocation != null) {
+                } else if (!isTripNearby) {
                     Card(
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
                         modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)
                     ) {
+                        val errorMessage = if (userLocation == null) {
+                            "Aguardando sinal do GPS para validar sua proximidade com ${activeTrip.destination}..."
+                        } else {
+                            "A viagem selecionada (${activeTrip.destination}) não está na sua região atual (Raio de 100km)."
+                        }
                         Text(
-                            text = "A viagem selecionada (${activeTrip.destination}) não está na sua região atual (Raio de 100km). Escolha outra no seletor acima.",
+                            text = errorMessage,
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onErrorContainer,
                             modifier = Modifier.padding(16.dp),
@@ -337,11 +314,10 @@ fun HomeScreen(
     }
 }
 
-// O restante das funções privadas permaneceu idêntico...
 @Composable
 private fun ActiveTripCard(trip: TripEntity, version: ThemeVersion) {
     val tripType = TripType.fromStorage(trip.type)
-    val dateFormatter = remember { DateTimeFormatter.ofPattern("dd/MM/yyyy", Locale.getDefault()) }
+    val dateFormatter = remember { DateTimeFormatter.ofPattern("dd/MM/yyyy") }
     val currencyFormatter = remember { NumberFormat.getCurrencyInstance(Locale("pt", "BR")) }
 
     Card(
@@ -477,12 +453,11 @@ private fun OsmTripMapView(latitude: Double, longitude: Double, destination: Str
                 mapView.overlays.add(marker)
             }
         } else {
-        // 💡 CORRIGIDO: Removido o 'marker =' duplicado de dentro do construtor
-        val marker = Marker(mapView)
-        marker.position = geoPoint
-        marker.title = destination
-        mapView.overlays.add(marker)
-    }
+            val marker = Marker(mapView)
+            marker.position = geoPoint
+            marker.title = destination
+            mapView.overlays.add(marker)
+        }
         mapView.invalidate()
     }
 
